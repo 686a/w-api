@@ -12,6 +12,7 @@ use scraper::{ElementRef, Html, Node, Selector};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    api::{remote_client, remote_client_builder},
     errors::{ErrorResponse, internal_error},
     state::GlobalState,
 };
@@ -150,7 +151,7 @@ pub async fn boards(
 ) -> Result<Json<BoardsResult>, (StatusCode, Json<ErrorResponse>)> {
     let token = get_token(&headers, query.token.as_deref())?;
     let session_cookie = get_session_cookie(&state, token).await?;
-    let client = Client::new();
+    let client = remote_client().map_err(internal_error)?;
     let url = format!(
         "https://cyber.{}/Cyber/ComBoard_V005/m_left.jsp",
         state.remote_api_domain
@@ -172,7 +173,7 @@ pub async fn posts(
 ) -> Result<Json<PostsResult>, (StatusCode, Json<ErrorResponse>)> {
     let token = get_token(&headers, query.token.as_deref())?;
     let session_cookie = get_session_cookie(&state, token).await?;
-    let client = Client::new();
+    let client = remote_client().map_err(internal_error)?;
     let page = query.page.unwrap_or(1);
     let bucket = query.bucket.unwrap_or(9);
     let page_string = page.to_string();
@@ -257,7 +258,7 @@ pub async fn post_image(
     let token = get_token(&headers, query.token.as_deref())?;
     let session_cookie = get_session_cookie(&state, token).await?;
     let url = validate_remote_image_url(&state.remote_api_domain, &query.url)?;
-    let client = Client::builder()
+    let client = remote_client_builder()
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(internal_error)?;
@@ -315,7 +316,7 @@ pub async fn attachment(
 ) -> Result<Response, (StatusCode, Json<ErrorResponse>)> {
     let token = get_token(&headers, query.token.as_deref())?;
     let session_cookie = get_session_cookie(&state, token).await?;
-    let client = Client::new();
+    let client = remote_client().map_err(internal_error)?;
     let board_type = normalize_board_type(&query.board_type)?;
     let page = query.page.unwrap_or(1);
     let page_string = page.to_string();
@@ -388,7 +389,7 @@ async fn fetch_post_detail(
 ) -> Result<PostDetail, (StatusCode, Json<ErrorResponse>)> {
     let token = get_token(headers, query.token.as_deref())?;
     let session_cookie = get_session_cookie(state, token).await?;
-    let client = Client::new();
+    let client = remote_client().map_err(internal_error)?;
     let page = query.page.unwrap_or(1);
     let page_string = page.to_string();
     let html = fetch_html_with_query(

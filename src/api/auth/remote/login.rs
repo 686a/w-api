@@ -7,7 +7,7 @@ use reqwest::header::{CONTENT_TYPE, HeaderValue};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::state::GlobalState;
+use crate::{api::remote_client_builder, state::GlobalState};
 
 #[derive(Deserialize)]
 pub struct RemoteLogin {
@@ -41,7 +41,7 @@ pub async fn login(
     }
 
     let cookie_store = Arc::new(Jar::default());
-    let client = match reqwest::Client::builder()
+    let client = match remote_client_builder()
         .cookie_provider(Arc::clone(&cookie_store))
         .build()
     {

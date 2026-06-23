@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 use crate::{
+    api::remote_client,
     errors::{ErrorResponse, internal_error},
     state::GlobalState,
 };
@@ -374,7 +375,7 @@ pub async fn page(
     let token = get_token(&headers, query.token.as_deref())?;
     let session_cookie = get_session_cookie(&state, token).await?;
     let page = info_page(&key)?;
-    let client = Client::new();
+    let client = remote_client().map_err(internal_error)?;
     let params = sanitize_params(query.params);
     let mut html = fetch_info_page_html(
         &client,
