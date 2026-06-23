@@ -46,6 +46,8 @@ async fn main() {
         .route("/bbs/posts", get(api::bbs::posts))
         .route("/bbs/posts/{cid}", get(api::bbs::post))
         .route("/bbs/posts/{cid}/text", get(api::bbs::post_text))
+        .route("/bbs/posts/{cid}/content", get(api::bbs::post_content))
+        .route("/bbs/posts/{cid}/images", get(api::bbs::post_image))
         .route(
             "/bbs/posts/{cid}/attachments/{index}",
             get(api::bbs::attachment),
