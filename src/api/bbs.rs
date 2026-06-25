@@ -950,7 +950,7 @@ fn safe_link_href(value: &str, context: &SanitizerContext<'_>) -> Option<String>
 
 fn image_proxy_src(value: &str, context: &SanitizerContext<'_>) -> Option<String> {
     let url = resolve_url(value, &context.base_url)?;
-    if !is_remote_cyber_url(context.remote_api_domain, &url) {
+    if !is_remote_post_image_url(context.remote_api_domain, &url) {
         return None;
     }
 
@@ -977,7 +977,7 @@ fn validate_remote_image_url(
 ) -> Result<Url, (StatusCode, Json<ErrorResponse>)> {
     let url = Url::parse(value)
         .map_err(|_| public_error(StatusCode::BAD_REQUEST, "Invalid image URL"))?;
-    if !is_remote_cyber_url(remote_api_domain, &url) {
+    if !is_remote_post_image_url(remote_api_domain, &url) {
         return Err(public_error(
             StatusCode::BAD_REQUEST,
             "Unsupported image URL",
@@ -992,13 +992,21 @@ fn cyber_base_url(remote_api_domain: &str) -> Result<Url, (StatusCode, Json<Erro
         .map_err(|_| public_error(StatusCode::INTERNAL_SERVER_ERROR, "Invalid remote domain"))
 }
 
-fn is_remote_cyber_url(remote_api_domain: &str, url: &Url) -> bool {
+fn is_remote_post_image_url(remote_api_domain: &str, url: &Url) -> bool {
     if url.scheme() != "https" || !url.username().is_empty() || url.password().is_some() {
         return false;
     }
 
-    url.host_str()
-        .is_some_and(|host| host.eq_ignore_ascii_case(&format!("cyber.{remote_api_domain}")))
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+
+    [
+        format!("cyber.{remote_api_domain}"),
+        format!("cyberimg.{remote_api_domain}"),
+    ]
+    .iter()
+    .any(|allowed_host| host.eq_ignore_ascii_case(allowed_host))
 }
 
 fn is_board_chrome_element(element: &ElementRef<'_>) -> bool {
@@ -1452,6 +1460,7 @@ mod tests {
                     <a href="javascript:alert(1)" onclick="evil()">bad link</a>
                     <a href="/Cyber/read.jsp?x=1&amp;y=2" title="safe" onclick="evil()">safe link</a>
                     <img src="/Cyber/upload/pic.png?x=1&amp;y=2" alt="Remote &amp; Pic" onerror="evil()">
+                    <img src="https://cyberimg.example.edu/ComBoard/img/upload/poster.png" alt="Poster Image">
                     <img src="https://evil.example/image.png" alt="evil image">
                     <span style="color:red" data-x="1">span text</span>
                     <table onclick="evil()">
@@ -1493,6 +1502,7 @@ mod tests {
             "bad link",
             "safe link",
             "Remote & Pic",
+            "Poster Image",
             "span text",
             "Nested cell",
             "custom child",
@@ -1541,6 +1551,9 @@ mod tests {
         assert!(html.contains("custom child"));
         assert!(html.contains(
             "src=\"/bbs/posts/cid-1/images?url=https%3A%2F%2Fcyber.example.edu%2FCyber%2Fupload%2Fpic.png%3Fx%3D1%26y%3D2&amp;token=local-token\""
+        ));
+        assert!(html.contains(
+            "src=\"/bbs/posts/cid-1/images?url=https%3A%2F%2Fcyberimg.example.edu%2FComBoard%2Fimg%2Fupload%2Fposter.png&amp;token=local-token\""
         ));
 
         for unexpected in [
@@ -1595,6 +1608,13 @@ mod tests {
         assert!(
             validate_remote_image_url("example.edu", "https://cyber.example.edu/Cyber/pic.png")
                 .is_ok()
+        );
+        assert!(
+            validate_remote_image_url(
+                "example.edu",
+                "https://cyberimg.example.edu/ComBoard/img/upload/pic.png"
+            )
+            .is_ok()
         );
         assert!(
             validate_remote_image_url("example.edu", "http://cyber.example.edu/Cyber/pic.png")
